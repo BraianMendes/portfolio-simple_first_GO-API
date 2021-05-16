@@ -26,6 +26,7 @@ func main() {
 		json.NewEncoder(responseWriter).Encode(lightbulbs)
 	})
 
+	// SEARCH AND SWITCH ON/OFF
 	http.HandleFunc("/lightbulbs/switch", func(responseWriter http.ResponseWriter, request *http.Request) {
 		responseWriter.Header().Set("Content-Type", "application-json")
 
@@ -43,6 +44,29 @@ func main() {
 		}
 
 		lightbulbs[name] = !lightbulbs[name]
+
+		responseWriter.WriteHeader(http.StatusOK)
+		json.NewEncoder(responseWriter).Encode(lightbulbs)
+	})
+
+	// CREATE NEW LIGHTBULB
+	http.HandleFunc("/lightbulbs/create", func(responseWriter http.ResponseWriter, request *http.Request) {
+		responseWriter.Header().Set("Content-Type", "application-json")
+
+		name := request.URL.Query().Get("name")
+		if name == "" {
+			responseWriter.WriteHeader(http.StatusBadRequest)
+			responseWriter.Write([]byte(`{"message":"a light bulb name should be provided as the value of a 'name' querystring parameter"}`))
+			return
+		}
+
+		if _, keyExists := lightbulbs[name]; keyExists {
+			responseWriter.WriteHeader(http.StatusBadRequest)
+			responseWriter.Write([]byte(`{"message":"a lightbulb with the provided name already exists"}`))
+			return
+		}
+
+		lightbulbs[name] = false
 
 		responseWriter.WriteHeader(http.StatusOK)
 		json.NewEncoder(responseWriter).Encode(lightbulbs)
