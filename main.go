@@ -14,12 +14,14 @@ func main() {
 	lightbulbs["livingroom"] = false
 	lightbulbs["kitchen"] = false
 
-	http.HandleFunc("/hello", func(responseWriter http.ResponseWriter, request *http.Request) {
+	// CHECK
+	http.HandleFunc("/healthcheck", func(responseWriter http.ResponseWriter, request *http.Request) {
 		responseWriter.Header().Set("Content-Type", "application-json")
 		responseWriter.WriteHeader(http.StatusOK)
-		responseWriter.Write([]byte(`{"message":"Hello World!"}`))
+		responseWriter.Write([]byte(`{"message":"service is up and running"}`))
 	})
 
+	// LIST
 	http.HandleFunc("/lightbulbs", func(responseWriter http.ResponseWriter, request *http.Request) {
 		responseWriter.Header().Set("Content-Type", "application-json")
 		responseWriter.WriteHeader(http.StatusOK)
@@ -67,6 +69,29 @@ func main() {
 		}
 
 		lightbulbs[name] = false
+
+		responseWriter.WriteHeader(http.StatusOK)
+		json.NewEncoder(responseWriter).Encode(lightbulbs)
+	})
+
+	// DELETE
+	http.HandleFunc("/lightbulbs/delete", func(responseWriter http.ResponseWriter, request *http.Request) {
+		responseWriter.Header().Set("Content-Type", "application-json")
+
+		name := request.URL.Query().Get("name")
+		if name == "" {
+			responseWriter.WriteHeader(http.StatusBadRequest)
+			responseWriter.Write([]byte(`{"message":"a light bulb name should be provided as the value of a 'name' querystring parameter"}`))
+			return
+		}
+
+		if _, keyExists := lightbulbs[name]; !keyExists {
+			responseWriter.WriteHeader(http.StatusNotFound)
+			responseWriter.Write([]byte(`{"message":"a lightbulb with the provided name doesn't exist"}`))
+			return
+		}
+
+		delete(lightbulbs, name)
 
 		responseWriter.WriteHeader(http.StatusOK)
 		json.NewEncoder(responseWriter).Encode(lightbulbs)
