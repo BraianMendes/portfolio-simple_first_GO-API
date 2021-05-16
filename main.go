@@ -1,102 +1,37 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
-)
+	"time"
 
-var (
-	lightbulbs = make(map[string]bool)
+	"github.com/BraianMendes/FirstGoAPI/house"
 )
 
 func main() {
-	lightbulbs["livingroom"] = false
-	lightbulbs["kitchen"] = false
+	s := house.NewInMemoryStorage()
+	router := http.NewServeMux()
 
-	// CHECK
-	http.HandleFunc("/healthcheck", func(responseWriter http.ResponseWriter, request *http.Request) {
-		responseWriter.Header().Set("Content-Type", "application-json")
-		responseWriter.WriteHeader(http.StatusOK)
-		responseWriter.Write([]byte(`{"message":"service is up and running"}`))
+	router.HandleFunc("/healthcheck", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application-json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"message":"service is up and running"}`))
+		return
 	})
 
-	// LIST
-	http.HandleFunc("/lightbulbs", func(responseWriter http.ResponseWriter, request *http.Request) {
-		responseWriter.Header().Set("Content-Type", "application-json")
-		responseWriter.WriteHeader(http.StatusOK)
-		json.NewEncoder(responseWriter).Encode(lightbulbs)
-	})
+	router.HandleFunc("/lightbulbs", house.GetLightbulb(s))
+	router.HandleFunc("/lightbulbs/create", house.CreateLightbulb(s))
+	router.HandleFunc("/lightbulbs/switch", house.SwitchLightbulb(s))
+	router.HandleFunc("/lightbulbs/delete", house.DeleteLightbulb(s))
 
-	// SEARCH AND SWITCH ON/OFF
-	http.HandleFunc("/lightbulbs/switch", func(responseWriter http.ResponseWriter, request *http.Request) {
-		responseWriter.Header().Set("Content-Type", "application-json")
-
-		name := request.URL.Query().Get("name")
-		if name == "" {
-			responseWriter.WriteHeader(http.StatusBadRequest)
-			responseWriter.Write([]byte(`{"message":"a light bulb name should be provided as the value of a 'name' querystring parameter"}`))
-			return
-		}
-
-		if _, keyExists := lightbulbs[name]; !keyExists {
-			responseWriter.WriteHeader(http.StatusNotFound)
-			responseWriter.Write([]byte(`{"message":"a light bulb with the provided name doesn't exist"}`))
-			return
-		}
-
-		lightbulbs[name] = !lightbulbs[name]
-
-		responseWriter.WriteHeader(http.StatusOK)
-		json.NewEncoder(responseWriter).Encode(lightbulbs)
-	})
-
-	// CREATE NEW LIGHTBULB
-	http.HandleFunc("/lightbulbs/create", func(responseWriter http.ResponseWriter, request *http.Request) {
-		responseWriter.Header().Set("Content-Type", "application-json")
-
-		name := request.URL.Query().Get("name")
-		if name == "" {
-			responseWriter.WriteHeader(http.StatusBadRequest)
-			responseWriter.Write([]byte(`{"message":"a light bulb name should be provided as the value of a 'name' querystring parameter"}`))
-			return
-		}
-
-		if _, keyExists := lightbulbs[name]; keyExists {
-			responseWriter.WriteHeader(http.StatusBadRequest)
-			responseWriter.Write([]byte(`{"message":"a lightbulb with the provided name already exists"}`))
-			return
-		}
-
-		lightbulbs[name] = false
-
-		responseWriter.WriteHeader(http.StatusOK)
-		json.NewEncoder(responseWriter).Encode(lightbulbs)
-	})
-
-	// DELETE
-	http.HandleFunc("/lightbulbs/delete", func(responseWriter http.ResponseWriter, request *http.Request) {
-		responseWriter.Header().Set("Content-Type", "application-json")
-
-		name := request.URL.Query().Get("name")
-		if name == "" {
-			responseWriter.WriteHeader(http.StatusBadRequest)
-			responseWriter.Write([]byte(`{"message":"a light bulb name should be provided as the value of a 'name' querystring parameter"}`))
-			return
-		}
-
-		if _, keyExists := lightbulbs[name]; !keyExists {
-			responseWriter.WriteHeader(http.StatusNotFound)
-			responseWriter.Write([]byte(`{"message":"a lightbulb with the provided name doesn't exist"}`))
-			return
-		}
-
-		delete(lightbulbs, name)
-
-		responseWriter.WriteHeader(http.StatusOK)
-		json.NewEncoder(responseWriter).Encode(lightbulbs)
-	})
+	srv := http.Server{
+		Addr:         ":8080",
+		WriteTimeout: 1 * time.Second,
+		ReadTimeout:  1 * time.Second,
+		Handler:      router,
+	}
 
 	fmt.Println("http server listening on localhost:8080")
-	http.ListenAndServe(":8080", nil)
+	log.Fatal(srv.ListenAndServe())
 }
